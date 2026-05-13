@@ -8,10 +8,82 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- ===== تنسيقات إضافية لقائمة الملفات داخل البطاقة ===== -->
+  <style>
+    /* قائمة الملفات المرفوعة داخل البطاقة */
+    .files-list {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      animation: fadeUp 0.3s ease;
+    }
+
+    .file-item span { opacity: 0.7; font-size: 0.72rem; }
+
+    .file-remove {
+      background: none;
+      border: none;
+      color: #f78c8c;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      min-width: unset;
+      transition: background 0.2s;
+    }
+    .file-remove:hover { background: rgba(224,82,82,0.2); }
+
+    /* زر دمج المنطقة */
+    .btn-region-merge {
+      width: 100%;
+      margin-top: 10px;
+      padding: 9px;
+      background: rgba(201,168,76,0.12);
+      color: var(--gold-light);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Tajawal', sans-serif;
+      transition: all 0.2s;
+      display: none; /* يظهر فقط عند رفع أكثر من ملف */
+    }
+    .btn-region-merge:hover {
+      background: rgba(201,168,76,0.22);
+      transform: translateY(-1px);
+    }
+
+    /* شارة عدد الملفات */
+    .files-badge {
+      display: inline-block;
+      background: rgba(201,168,76,0.2);
+      color: var(--gold-light);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 12px;
+      padding: 1px 9px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+  </style>
 </head>
 <body>
 
-  <!-- خلفية الجزيئات الهندسية الإسلامية -->
   <div class="bg-pattern"></div>
   <div class="bg-glow glow-1"></div>
   <div class="bg-glow glow-2"></div>
@@ -20,7 +92,6 @@
   <header>
     <div class="header-inner">
       <div class="logo-section">
-        <!-- اللوجو PNG -->
         <img src="logo.png" alt="شعار النبأ العظيم" class="logo-img" />
         <div class="logo-text">
           <h1>مؤسسة النبأ العظيم</h1>
@@ -43,13 +114,21 @@
   <!-- ===== المحتوى ===== -->
   <main>
 
-    <!-- شريط الإحصائيات العلوي -->
+    <!-- شريط الإحصائيات -->
     <div class="stats-strip">
       <div class="stat-item">
         <span class="stat-icon">📂</span>
         <div>
           <span class="stat-value" id="uploaded-count">0</span>
           <span class="stat-label">مناطق مرفوعة</span>
+        </div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-icon">🗂️</span>
+        <div>
+          <span class="stat-value" id="total-files">0</span>
+          <span class="stat-label">إجمالي الملفات</span>
         </div>
       </div>
       <div class="stat-divider"></div>
@@ -70,26 +149,26 @@
       </div>
     </div>
 
-    <!-- ===== رأس قسم البطاقات ===== -->
+    <!-- رأس القسم -->
     <div class="section-header">
       <div class="section-title">
         <span class="ornament-left">❧</span>
         تقارير المناطق السبع
         <span class="ornament-right">❧</span>
       </div>
-      <p class="section-subtitle">ارفع ملف Excel لكل منطقة ثم اضغط دمج وتصدير</p>
+      <p class="section-subtitle">يمكنك رفع أكثر من ملف لكل منطقة — سيتم دمجها تلقائياً</p>
     </div>
 
-    <!-- ===== بطاقات المناطق السبع ===== -->
+    <!-- بطاقات المناطق -->
     <div class="regions-grid" id="regions-grid">
-      <!-- تُولَّد تلقائياً من app.js -->
+      <!-- تُولَّد من app.js -->
     </div>
 
-    <!-- ===== أزرار التحكم ===== -->
+    <!-- أزرار التحكم الرئيسية -->
     <div class="actions-bar">
-      <button id="merge-btn" class="btn-primary" onclick="mergeAndExport()" disabled>
+      <button id="merge-btn" class="btn-primary" onclick="mergeAllAndExport()" disabled>
         <span class="btn-icon">⬇️</span>
-        <span>دمج وتصدير Excel</span>
+        <span>دمج كل المناطق وتصدير</span>
       </button>
       <button id="preview-btn" class="btn-secondary" onclick="togglePreview()" style="display:none">
         <span class="btn-icon">👁️</span>
@@ -101,7 +180,7 @@
       </button>
     </div>
 
-    <!-- ===== جدول المعاينة ===== -->
+    <!-- جدول المعاينة -->
     <div id="preview-section" class="preview-card" style="display:none">
       <div class="preview-header">
         <h2>📊 معاينة البيانات المدمجة</h2>
@@ -112,7 +191,6 @@
 
   </main>
 
-  <!-- ===== الفوتر ===== -->
   <footer>
     <div class="footer-ornament">﷽</div>
     <p>مؤسسة النبأ العظيم © <span id="year"></span> — جميع الحقوق محفوظة</p>
