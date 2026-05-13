@@ -9,9 +9,6 @@ const REGIONS = [
   { id: 6, name: "المنطقة السابعة" }
 ];
 
-// ===== هيكل البيانات الجديد =====
-// لكل منطقة: مصفوفة من الملفات، كل ملف له اسم وبياناته
-// regionFiles[regionId] = [ { name, rows }, { name, rows }, ... ]
 const regionFiles = {};
 
 // ===== بناء البطاقات =====
@@ -29,8 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="card-number">${region.id + 1}</span>
       </div>
       <p class="card-stats" id="stats-${region.id}">لم يتم رفع ملف بعد</p>
-
-      <!-- منطقة رفع الملفات — تقبل ملفات متعددة -->
       <div class="drop-zone" id="zone-${region.id}"
            onclick="document.getElementById('file-${region.id}').click()"
            ondragover="handleDragOver(event, ${region.id})"
@@ -41,17 +36,12 @@ document.addEventListener("DOMContentLoaded", () => {
           اضغط لإضافة ملف أو أكثر<br>
           <span style="color:rgba(255,255,255,0.3)">.xlsx / .xls / .csv</span>
         </p>
-        <!-- multiple يسمح باختيار أكثر من ملف دفعة واحدة -->
         <input type="file" id="file-${region.id}"
                accept=".xlsx,.xls,.csv"
                multiple
                onchange="handleFileSelect(event, ${region.id})" />
       </div>
-
-      <!-- قائمة الملفات المرفوعة لهذه المنطقة -->
       <div class="files-list" id="files-list-${region.id}"></div>
-
-      <!-- زر دمج هذه المنطقة فقط وتصديرها -->
       <button class="btn-region-merge"
               id="btn-region-${region.id}"
               onclick="exportRegionOnly(${region.id})">
@@ -66,7 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
 function handleFileSelect(event, regionId) {
   const files = Array.from(event.target.files);
   files.forEach(file => processFile(file, regionId));
-  // إعادة تعيين الـ input لإتاحة رفع نفس الملف مجدداً إن احتاج
   event.target.value = "";
 }
 
@@ -84,44 +73,51 @@ function handleDrop(event, regionId) {
   files.forEach(file => processFile(file, regionId));
 }
 
-// ===== قراءة ملف واحد وإضافته للمنطقة =====
+// ===== قراءة الملف — يقرأ كل الأوراق =====
 function processFile(file, regionId) {
-  // تحقق إذا كان الملف مرفوعاً مسبقاً لنفس المنطقة
-  if (regionFiles[regionId]) {
-    const duplicate = regionFiles[regionId].find(f => f.name === file.name);
-    if (duplicate) {
-      if (!confirm(`الملف "${file.name}" مرفوع مسبقاً في هذه المنطقة.\nهل تريد استبداله؟`)) return;
-      // حذف القديم
-      regionFiles[regionId] = regionFiles[regionId].filter(f => f.name !== file.name);
-    }
-  }
-
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const wb = XLSX.read(e.target.result, { type: "binary" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      let rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-      if (rows.length === 0) {
+      // قراءة كل الأوراق وليس الأولى فقط
+      let allRows = [];
+
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        let rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        // تجاهل الأوراق الفارغة
+        if (rows.length === 0) return;
+
+        // إضافة عمود المنطقة واسم الورقة والتاريخ لكل صف
+        rows = rows.map(row => ({
+          "المنطقة":    REGIONS[regionId].name,
+          "اسم الورقة": sheetName,
+          ...row,
+          "تاريخ الرفع": new Date().toLocaleDateString("ar-SA")
+        }));
+
+        allRows = allRows.concat(rows);
+      });
+
+      if (allRows.length === 0) {
         alert(`⚠️ الملف فارغ: ${file.name}`);
         return;
       }
 
-      // إضافة عمود المنطقة وتاريخ الرفع
-      rows = rows.map(row => ({
-        "المنطقة": REGIONS[regionId].name,
-        ...row,
-        "تاريخ الرفع": new Date().toLocaleDateString("ar-SA")
-      }));
+      // تحقق من التكرار
+      if (regionFiles[regionId]) {
+        const duplicate = regionFiles[regionId].find(f => f.name === file.name);
+        if (duplicate) {
+          if (!confirm(`الملف "${file.name}" مرفوع مسبقاً في هذه المنطقة.\nهل تريد استبداله؟`)) return;
+          regionFiles[regionId] = regionFiles[regionId].filter(f => f.name !== file.name);
+        }
+      }
 
-      // تهيئة مصفوفة الملفات لهذه المنطقة إن لم تكن موجودة
       if (!regionFiles[regionId]) regionFiles[regionId] = [];
+      regionFiles[regionId].push({ name: file.name, rows: allRows });
 
-      // إضافة الملف الجديد
-      regionFiles[regionId].push({ name: file.name, rows });
-
-      // تحديث الواجهة
       updateCardUI(regionId);
       updateGlobalStats();
 
@@ -138,12 +134,10 @@ function updateCardUI(regionId) {
   const totalRows = files.reduce((sum, f) => sum + f.rows.length, 0);
   const fileCount = files.length;
 
-  // تحديث الإحصاء
   document.getElementById(`stats-${regionId}`).innerHTML =
     `<span class="files-badge">${fileCount} ملف</span>
      <span style="color:#7de8b0">${totalRows} سجل إجمالاً</span>`;
 
-  // تحديث منطقة الرفع
   const zone = document.getElementById(`zone-${regionId}`);
   zone.classList.add("success");
   zone.innerHTML = `
@@ -154,7 +148,6 @@ function updateCardUI(regionId) {
            onchange="handleFileSelect(event, ${regionId})" />
   `;
 
-  // تحديث قائمة الملفات
   const list = document.getElementById(`files-list-${regionId}`);
   list.innerHTML = files.map((f, index) => `
     <div class="file-item">
@@ -166,11 +159,9 @@ function updateCardUI(regionId) {
     </div>
   `).join("");
 
-  // إظهار زر تصدير المنطقة منفردةً فقط إذا كان هناك ملفات
   const regionBtn = document.getElementById(`btn-region-${regionId}`);
   regionBtn.style.display = fileCount > 0 ? "block" : "none";
 
-  // تعليم البطاقة
   document.getElementById(`card-${regionId}`).classList.toggle("uploaded", fileCount > 0);
 }
 
@@ -179,7 +170,6 @@ function removeFile(regionId, fileIndex) {
   regionFiles[regionId].splice(fileIndex, 1);
   if (regionFiles[regionId].length === 0) {
     delete regionFiles[regionId];
-    // إعادة البطاقة لحالتها الابتدائية
     resetCard(regionId);
   } else {
     updateCardUI(regionId);
@@ -224,12 +214,11 @@ function updateGlobalStats() {
     regionCount > 0 ? "inline-flex" : "none";
 }
 
-// ===== دمج منطقة واحدة فقط وتصديرها =====
+// ===== تصدير منطقة واحدة فقط =====
 function exportRegionOnly(regionId) {
   const files = regionFiles[regionId];
   if (!files || files.length === 0) return;
 
-  // دمج كل ملفات هذه المنطقة في مصفوفة واحدة
   let merged = [];
   files.forEach(f => { merged = merged.concat(f.rows); });
 
@@ -250,7 +239,6 @@ function mergeAllAndExport() {
     return;
   }
 
-  // دمج كل الملفات من كل المناطق
   let allRows = [];
   REGIONS.forEach(region => {
     if (regionFiles[region.id]) {
@@ -268,9 +256,9 @@ function mergeAllAndExport() {
   const summaryRows = REGIONS
     .filter(r => regionFiles[r.id])
     .map(r => ({
-      "المنطقة":       r.name,
-      "عدد الملفات":   regionFiles[r.id].length,
-      "عدد السجلات":   regionFiles[r.id].reduce((s, f) => s + f.rows.length, 0)
+      "المنطقة":     r.name,
+      "عدد الملفات": regionFiles[r.id].length,
+      "عدد السجلات": regionFiles[r.id].reduce((s, f) => s + f.rows.length, 0)
     }));
 
   const ws2 = XLSX.utils.json_to_sheet(summaryRows);
