@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>النبأ العظيم - إدارة الحلقات القرآنية</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- خلفية الجزيئات الهندسية الإسلامية -->
+  <div class="bg-pattern"></div>
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+
+  <!-- ===== الهيدر ===== -->
+  <header>
+    <div class="header-inner">
+      <div class="logo-section">
+        <!-- اللوجو PNG -->
+        <img src="logo.png" alt="شعار النبأ العظيم" class="logo-img" />
+        <div class="logo-text">
+          <h1>مؤسسة النبأ العظيم</h1>
+          <p>منظومة إدارة الحلقات القرآنية</p>
+        </div>
+      </div>
+      <div class="header-badge">
+        <span class="badge-dot"></span>
+        النظام نشط
+      </div>
+    </div>
+    <div class="header-ornament">
+      <svg viewBox="0 0 1200 30" preserveAspectRatio="none">
+        <path d="M0,15 Q150,0 300,15 Q450,30 600,15 Q750,0 900,15 Q1050,30 1200,15 L1200,30 L0,30 Z" fill="rgba(255,255,255,0.06)"/>
+        <path d="M0,20 Q150,5 300,20 Q450,35 600,20 Q750,5 900,20 Q1050,35 1200,20 L1200,30 L0,30 Z" fill="rgba(255,255,255,0.04)"/>
+      </svg>
+    </div>
+  </header>
+
+  <!-- ===== المحتوى ===== -->
+  <main>
+
+    <!-- شريط الإحصائيات العلوي -->
+    <div class="stats-strip">
+      <div class="stat-item">
+        <span class="stat-icon">📂</span>
+        <div>
+          <span class="stat-value" id="uploaded-count">0</span>
+          <span class="stat-label">مناطق مرفوعة</span>
+        </div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-icon">👤</span>
+        <div>
+          <span class="stat-value" id="total-records">0</span>
+          <span class="stat-label">إجمالي السجلات</span>
+        </div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-icon">✅</span>
+        <div>
+          <span class="stat-value" id="status-label">جاهز</span>
+          <span class="stat-label">حالة النظام</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== رأس قسم البطاقات ===== -->
+    <div class="section-header">
+      <div class="section-title">
+        <span class="ornament-left">❧</span>
+        تقارير المناطق السبع
+        <span class="ornament-right">❧</span>
+      </div>
+      <p class="section-subtitle">ارفع ملف Excel لكل منطقة ثم اضغط دمج وتصدير</p>
+    </div>
+
+    <!-- ===== بطاقات المناطق السبع ===== -->
+    <div class="regions-grid" id="regions-grid">
+      <!-- تُولَّد تلقائياً من app.js -->
+    </div>
+
+    <!-- ===== أزرار التحكم ===== -->
+    <div class="actions-bar">
+      <button id="merge-btn" class="btn-primary" onclick="mergeAndExport()" disabled>
+        <span class="btn-icon">⬇️</span>
+        <span>دمج وتصدير Excel</span>
+      </button>
+      <button id="preview-btn" class="btn-secondary" onclick="togglePreview()" style="display:none">
+        <span class="btn-icon">👁️</span>
+        <span>معاينة البيانات</span>
+      </button>
+      <button id="reset-btn" class="btn-danger" onclick="resetAll()">
+        <span class="btn-icon">🔄</span>
+        <span>إعادة تعيين</span>
+      </button>
+    </div>
+
+    <!-- ===== جدول المعاينة ===== -->
+    <div id="preview-section" class="preview-card" style="display:none">
+      <div class="preview-header">
+        <h2>📊 معاينة البيانات المدمجة</h2>
+        <span id="preview-count" class="preview-badge"></span>
+      </div>
+      <div id="preview-table-container"></div>
+    </div>
+
+  </main>
+
+  <!-- ===== الفوتر ===== -->
+  <footer>
+    <div class="footer-ornament">﷽</div>
+    <p>مؤسسة النبأ العظيم © <span id="year"></span> — جميع الحقوق محفوظة</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

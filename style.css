@@ -1,0 +1,513 @@
+/* ===== الخطوط والمتغيرات ===== */
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+:root {
+  --primary:       #1a6b4a;
+  --primary-light: #2d9166;
+  --primary-dark:  #0f4530;
+  --gold:          #c9a84c;
+  --gold-light:    #e0c06a;
+  --surface:       rgba(255, 255, 255, 0.07);
+  --surface-hover: rgba(255, 255, 255, 0.12);
+  --border:        rgba(255, 255, 255, 0.12);
+  --text-primary:  #f0f4f1;
+  --text-muted:    rgba(240, 244, 241, 0.6);
+  --danger:        #e05252;
+  --radius-lg:     18px;
+  --radius-md:     12px;
+  --shadow-glass:  0 8px 32px rgba(0, 0, 0, 0.35);
+  --transition:    all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== أساسيات ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Tajawal', sans-serif;
+  background: #0b2318;
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ===== الخلفية الهندسية الإسلامية ===== */
+.bg-pattern {
+  position: fixed;
+  inset: 0;
+  background-image:
+    /* نمط هندسي إسلامي بالـ SVG inline */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cg fill='none' stroke='rgba(45,145,102,0.07)' stroke-width='1'%3E%3Cpolygon points='40,5 75,27.5 75,52.5 40,75 5,52.5 5,27.5'/%3E%3Cpolygon points='40,15 65,30 65,50 40,65 15,50 15,30'/%3E%3Cline x1='40' y1='5' x2='40' y2='75'/%3E%3Cline x1='5' y1='27.5' x2='75' y2='52.5'/%3E%3Cline x1='5' y1='52.5' x2='75' y2='27.5'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 80px 80px;
+  opacity: 1;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* توهجات الخلفية */
+.bg-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #2d9166, transparent);
+  top: -200px; right: -200px;
+}
+.glow-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, #c9a84c, transparent);
+  bottom: -200px; left: -150px;
+}
+
+/* كل العناصر فوق الخلفية */
+header, main, footer { position: relative; z-index: 1; }
+
+/* ===== الهيدر ===== */
+header {
+  background: linear-gradient(135deg, #0b2318 0%, #1a4731 50%, #0f3525 100%);
+  border-bottom: 1px solid rgba(201, 168, 76, 0.3);
+  padding: 0;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 22px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.logo-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
+  transition: var(--transition);
+}
+.logo-img:hover { filter: drop-shadow(0 0 20px rgba(201,168,76,0.7)); transform: scale(1.05); }
+
+.logo-text h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, var(--gold-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+
+.logo-text p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 300;
+  letter-spacing: 0.5px;
+}
+
+.header-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(45, 145, 102, 0.2);
+  border: 1px solid rgba(45, 145, 102, 0.4);
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 0.82rem;
+  color: #7de8b0;
+  backdrop-filter: blur(10px);
+}
+
+.badge-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #4dff99;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+.header-ornament svg { display: block; width: 100%; height: 30px; }
+
+/* ===== المحتوى الرئيسي ===== */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 40px;
+}
+
+/* ===== شريط الإحصائيات ===== */
+.stats-strip {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 36px;
+  box-shadow: var(--shadow-glass);
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stat-icon { font-size: 1.8rem; }
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--gold-light);
+  line-height: 1;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  margin: 0 20px;
+}
+
+/* ===== رأس القسم ===== */
+.section-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.ornament-left, .ornament-right {
+  color: var(--primary-light);
+  font-size: 1rem;
+  margin: 0 10px;
+}
+
+.section-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* ===== شبكة البطاقات ===== */
+.regions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+/* ===== بطاقة المنطقة ===== */
+.region-card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: var(--transition);
+  box-shadow: var(--shadow-glass);
+  position: relative;
+  overflow: hidden;
+}
+
+/* زخرفة الزاوية */
+.region-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 60px; height: 60px;
+  background: linear-gradient(135deg, rgba(201,168,76,0.15), transparent);
+  border-radius: 0 var(--radius-lg) 0 60px;
+}
+
+.region-card:hover {
+  border-color: rgba(201, 168, 76, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(201,168,76,0.2);
+}
+
+.region-card.uploaded {
+  border-color: rgba(45, 145, 102, 0.6);
+  background: rgba(45, 145, 102, 0.1);
+}
+.region-card.uploaded::before {
+  background: linear-gradient(135deg, rgba(45,145,102,0.25), transparent);
+}
+
+/* رأس البطاقة */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.card-number {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.card-stats {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  min-height: 18px;
+}
+
+/* ===== منطقة رفع الملف ===== */
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  padding: 18px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  background: rgba(0,0,0,0.2);
+  position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.07);
+}
+
+.drop-zone input[type="file"] { display: none; }
+
+.drop-icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+
+.drop-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* حالة النجاح */
+.drop-zone.success {
+  border-color: var(--primary-light);
+  border-style: solid;
+  background: rgba(45, 145, 102, 0.1);
+}
+
+.drop-zone.success .drop-icon { filter: none; }
+
+/* ===== شريط الأزرار ===== */
+.actions-bar {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+/* أزرار عامة */
+button {
+  font-family: 'Tajawal', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 28px;
+  border: none;
+  border-radius: 50px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.3px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(45,145,102,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  min-width: 200px;
+  justify-content: center;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(45,145,102,0.6);
+  background: linear-gradient(135deg, var(--primary-light) 0%, #3db87e 100%);
+}
+.btn-primary:disabled {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.3);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: rgba(201,168,76,0.15);
+  color: var(--gold-light);
+  border: 1px solid rgba(201,168,76,0.35);
+}
+.btn-secondary:hover {
+  background: rgba(201,168,76,0.25);
+  transform: translateY(-2px);
+}
+
+.btn-danger {
+  background: rgba(224,82,82,0.12);
+  color: #f78c8c;
+  border: 1px solid rgba(224,82,82,0.3);
+}
+.btn-danger:hover {
+  background: rgba(224,82,82,0.25);
+  transform: translateY(-2px);
+}
+
+.btn-icon { font-size: 1.1rem; }
+
+/* ===== المعاينة ===== */
+.preview-card {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-glass);
+  margin-bottom: 20px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+.preview-badge {
+  background: rgba(45,145,102,0.2);
+  border: 1px solid rgba(45,145,102,0.4);
+  color: #7de8b0;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+}
+
+/* الجدول */
+#preview-table-container { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+thead th {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: white;
+  padding: 11px 16px;
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+}
+thead th:first-child { border-radius: 0 8px 0 0; }
+thead th:last-child  { border-radius: 8px 0 0 0; }
+
+tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+tbody tr:hover td { background: rgba(255,255,255,0.05); }
+tbody tr:nth-child(even) td { background: rgba(0,0,0,0.15); }
+
+/* ===== الفوتر ===== */
+footer {
+  text-align: center;
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.footer-ornament {
+  font-size: 1.4rem;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: 4px;
+}
+
+/* ===== تجاوب ===== */
+@media (max-width: 768px) {
+  .header-inner { flex-direction: column; text-align: center; }
+  .logo-section { flex-direction: column; }
+  .logo-text h1 { font-size: 1.3rem; }
+  .regions-grid { grid-template-columns: 1fr; }
+  .stats-strip { flex-direction: column; gap: 16px; }
+  .stat-divider { width: 80%; height: 1px; margin: 0; }
+  .actions-bar { flex-direction: column; align-items: stretch; }
+  button { justify-content: center; }
+}
+
+/* ===== أنيميشن الظهور ===== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.region-card { animation: fadeUp 0.4s ease forwards; }
+.region-card:nth-child(1) { animation-delay: 0.05s; }
+.region-card:nth-child(2) { animation-delay: 0.10s; }
+.region-card:nth-child(3) { animation-delay: 0.15s; }
+.region-card:nth-child(4) { animation-delay: 0.20s; }
+.region-card:nth-child(5) { animation-delay: 0.25s; }
+.region-card:nth-child(6) { animation-delay: 0.30s; }
+.region-card:nth-child(7) { animation-delay: 0.35s; }
