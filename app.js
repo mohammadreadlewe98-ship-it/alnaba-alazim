@@ -194,11 +194,10 @@ function processFile(file, regionId) {
       wb.SheetNames.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
 
-        // قراءة خام بدون header تلقائي
         const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         if (rawData.length === 0) return;
 
-        // البحث عن صف الرأس الحقيقي في أول 10 صفوف
+        // البحث عن صف الرأس في أول 10 صفوف
         let headerRowIndex = 0;
         for (let i = 0; i < Math.min(rawData.length, 10); i++) {
           const rowStr = rawData[i].join(" ");
@@ -206,13 +205,11 @@ function processFile(file, regionId) {
           if (matchCount >= 2) { headerRowIndex = i; break; }
         }
 
-        // بناء أسماء الأعمدة
         const headers = rawData[headerRowIndex].map((h, idx) => {
           const trimmed = String(h).trim();
           return trimmed !== "" ? trimmed : `عمود_${idx}`;
         });
 
-        // قراءة صفوف البيانات
         let rows = [];
         for (let i = headerRowIndex + 1; i < rawData.length; i++) {
           const rawRow = rawData[i];
@@ -241,9 +238,8 @@ function processFile(file, regionId) {
 
         if (rows.length === 0) return;
 
-        // ===== توحيد الأعمدة قبل الحفظ =====
+        // توحيد الأعمدة
         rows = normalizeColumns(rows);
-
         allRows = allRows.concat(rows);
       });
 
@@ -252,7 +248,6 @@ function processFile(file, regionId) {
         return;
       }
 
-      // التحقق من التكرار
       if (regionFiles[regionId]) {
         const dup = regionFiles[regionId].find(f => f.name === file.name);
         if (dup) {
@@ -287,7 +282,6 @@ function mergeByStudentName(files, regionName) {
     return files[0].rows.map(row => ({ "المنطقة": regionName, ...row }));
   }
 
-  // تجميع حسب الشهر
   const byMonth = {};
   files.forEach(file => {
     if (!byMonth[file.month]) byMonth[file.month] = [];
@@ -304,7 +298,6 @@ function mergeByStudentName(files, regionName) {
       const studentName = String(row[nameKey]).trim();
       if (!studentName) return;
 
-      // أول ظهور: حفظ البيانات الثابتة
       if (!studentMap[studentName]) {
         studentMap[studentName] = { "المنطقة": regionName };
         FIXED_COLS.forEach(col => {
@@ -313,7 +306,6 @@ function mergeByStudentName(files, regionName) {
         });
       }
 
-      // إضافة بيانات الشهر كأعمدة جديدة
       Object.entries(row).forEach(([key, val]) => {
         if (FIXED_COLS.includes(key)) return;
         if (key === nameKey) return;
@@ -432,20 +424,30 @@ function exportRegionOnly(regionId) {
   XLSX.writeFile(wbOut, `${REGIONS[regionId].name}_${today}.xlsx`);
 }
 
-// ===== دمج كل المناطق =====
+// ===== دمج كل المناطق — كل منطقة في ورقة مستقلة =====
 function mergeAllAndExport() {
   if (Object.keys(regionFiles).length === 0) {
     alert("⚠️ لم يتم رفع أي ملف");
     return;
   }
 
-  let allRows = [];
+  const wbOut = XLSX.utils.book_new();
   const summaryRows = [];
+  let allRows = [];
 
   REGIONS.forEach(region => {
     if (!regionFiles[region.id]) return;
+
     const merged = mergeByStudentName(regionFiles[region.id], region.name);
+    if (merged.length === 0) return;
+
     allRows = allRows.concat(merged);
+
+    // ورقة مستقلة لكل منطقة
+    const ws = XLSX.utils.json_to_sheet(merged);
+    ws["!cols"] = Object.keys(merged[0]).map(() => ({ wch: 22 }));
+    XLSX.utils.book_append_sheet(wbOut, ws, region.name.substring(0, 31));
+
     summaryRows.push({
       "المنطقة":     region.name,
       "عدد الملفات": regionFiles[region.id].length,
@@ -456,14 +458,14 @@ function mergeAllAndExport() {
 
   if (allRows.length === 0) { alert("⚠️ لا توجد بيانات"); return; }
 
-  const ws1 = XLSX.utils.json_to_sheet(allRows);
-  ws1["!cols"] = Object.keys(allRows[0]).map(() => ({ wch: 22 }));
+  // ورقة كل المناطق مجتمعة
+  const wsAll = XLSX.utils.json_to_sheet(allRows);
+  wsAll["!cols"] = Object.keys(allRows[0]).map(() => ({ wch: 22 }));
+  XLSX.utils.book_append_sheet(wbOut, wsAll, "كل المناطق");
 
-  const ws2 = XLSX.utils.json_to_sheet(summaryRows);
-
-  const wbOut = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wbOut, ws1, "البيانات الكاملة");
-  XLSX.utils.book_append_sheet(wbOut, ws2, "إحصائيات المناطق");
+  // ورقة الإحصائيات
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wbOut, wsSummary, "الإحصائيات");
 
   const today = new Date().toLocaleDateString("ar-SA").replace(/\//g, "-");
   XLSX.writeFile(wbOut, `النبأ_العظيم_${today}.xlsx`);
