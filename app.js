@@ -9,26 +9,32 @@ const REGIONS = [
   { id: 6, name: "المنطقة السابعة" }
 ];
 
-// عمود اسم الطالب — عدّله إذا كان اسم العمود مختلفاً في ملفاتك
 const STUDENT_NAME_COLS = [
-  "اسم الطالب",
-  "الاسم الثلاثي",
-  "اسم الطالبة",
-  "الاسم"
+  "اسم الطالب", "الاسم الثلاثي", "اسم الطالبة", "الاسم"
+];
+
+const FIXED_COLS = [
+  "المنطقة", "اسم الطالب", "الاسم الثلاثي", "اسم الطالبة",
+  "الاسم", "اسم المدرس", "اسم المعلم", "اسم الحلقة",
+  "المركز", "المستوى", "_شهر_"
+];
+
+const HEADER_KEYWORDS = [
+  "اسم الطالب", "الاسم الثلاثي", "اسم الطالبة",
+  "اسم المدرس", "اسم المعلم", "المستوى", "التقدير", "م"
 ];
 
 const regionFiles = {};
 
-// ===== إيجاد عمود اسم الطالب في أي صف =====
+// ===== إيجاد عمود اسم الطالب =====
 function findStudentNameKey(row) {
   for (const col of STUDENT_NAME_COLS) {
-    if (row.hasOwnProperty(col) && row[col] !== "") return col;
+    if (row.hasOwnProperty(col) && String(row[col]).trim() !== "") return col;
   }
-  // إذا لم يُوجد، أعد أول مفتاح غير فارغ
   return Object.keys(row).find(k => row[k] !== "") || null;
 }
 
-// ===== بناء البطاقات =====
+// ===== بناء البطاقات عند تحميل الصفحة =====
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("year").textContent = new Date().getFullYear();
   const grid = document.getElementById("regions-grid");
@@ -86,43 +92,79 @@ function handleDrop(event, regionId) {
   Array.from(event.dataTransfer.files).forEach(f => processFile(f, regionId));
 }
 
-// ===== قراءة الملف مع تنظيف الأعمدة =====
+// ===== قراءة الملف مع البحث عن صف الرأس الحقيقي =====
 function processFile(file, regionId) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const wb = XLSX.read(e.target.result, { type: "binary" });
       let allRows = [];
-
-      // استخراج اسم الشهر من اسم الملف أو الورقة
       const monthLabel = extractMonthLabel(file.name, wb.SheetNames[0]);
 
       wb.SheetNames.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
-        let rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-        if (rows.length === 0) return;
 
-        // تنظيف الأعمدة الفارغة و __EMPTY
-        rows = rows.map(row => {
-          const clean = {};
-          Object.entries(row).forEach(([k, v]) => {
-            if (k.startsWith("__EMPTY") || k.trim() === "") return;
-            clean[k.trim()] = v;
+        // قراءة خام بدون header تلقائي
+        const rawData = XLSX.utils.sheet_to_json(ws, {
+          header: 1,
+          defval: ""
+        });
+
+        if (rawData.length === 0) return;
+
+        // البحث عن صف الرأس الحقيقي في أول 10 صفوف
+        let headerRowIndex = 0;
+        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+          const rowStr = rawData[i].join(" ");
+          const matchCount = HEADER_KEYWORDS.filter(k => rowStr.includes(k)).length;
+          if (matchCount >= 2) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        // بناء أسماء الأعمدة من صف الرأس
+        const headers = rawData[headerRowIndex].map((h, idx) => {
+          const trimmed = String(h).trim();
+          return trimmed !== "" ? trimmed : `عمود_${idx}`;
+        });
+
+        // قراءة بيانات الطلاب بعد صف الرأس
+        let rows = [];
+        for (let i = headerRowIndex + 1; i < rawData.length; i++) {
+          const rawRow = rawData[i];
+          const rowObj = {};
+
+          headers.forEach((h, idx) => {
+            rowObj[h] = rawRow[idx] !== undefined ? rawRow[idx] : "";
           });
-          return clean;
-        }).filter(row =>
-          Object.values(row).filter(v => v !== "" && v !== null).length > 2
-        );
+
+          // تجاهل الصفوف الفارغة أو شبه الفارغة
+          const nonEmpty = Object.values(rowObj).filter(
+            v => v !== "" && v !== null && v !== undefined
+          );
+          if (nonEmpty.length < 2) continue;
+
+          // تجاهل صفوف المجاميع والعناوين المكررة
+          const rowStr = Object.values(rowObj).join(" ");
+          if (
+            rowStr.includes("المجموع") ||
+            rowStr.includes("الإجمالي") ||
+            rowStr.includes("تقرير شهر") ||
+            rowStr.includes("اسم الطالب") ||
+            rowStr.includes("الاسم الثلاثي")
+          ) continue;
+
+          rowObj["_شهر_"] = monthLabel;
+          rows.push(rowObj);
+        }
 
         if (rows.length === 0) return;
-
-        // إضافة عمود الشهر لكل صف
-        rows = rows.map(row => ({ ...row, "_شهر_": monthLabel }));
         allRows = allRows.concat(rows);
       });
 
       if (allRows.length === 0) {
-        alert(`⚠️ لم يُعثر على بيانات في: ${file.name}`);
+        alert(`⚠️ لم يُعثر على بيانات في: ${file.name}\n\nتأكد أن الملف يحتوي على جدول بأعمدة واضحة.`);
         return;
       }
 
@@ -153,7 +195,7 @@ function processFile(file, regionId) {
   reader.readAsBinaryString(file);
 }
 
-// ===== استخراج اسم الشهر من اسم الملف أو الورقة =====
+// ===== استخراج اسم الشهر من اسم الملف =====
 function extractMonthLabel(fileName, sheetName) {
   const arabicMonths = [
     "يناير","فبراير","مارس","أبريل","مايو","يونيو",
@@ -163,22 +205,19 @@ function extractMonthLabel(fileName, sheetName) {
     "تموز","آب","أيلول","تشرين","اذار","ايار"
   ];
 
-  const sources = [fileName, sheetName];
-  for (const src of sources) {
+  for (const src of [fileName, sheetName]) {
     for (const m of arabicMonths) {
       if (src.includes(m)) return m;
     }
   }
 
-  // إذا لم يُعثر على شهر، استخدم تاريخ اليوم
   return new Date().toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
 }
 
-// ===== الدمج الذكي: مقارنة الطلاب وتوسيع الأعمدة أفقياً =====
+// ===== الدمج الذكي: كل طالب سطر واحد تتوسع أعمدته شهرياً =====
 function mergeByStudentName(files, regionName) {
   if (!files || files.length === 0) return [];
 
-  // إذا كان ملف واحد فقط، أعده كما هو مع إضافة المنطقة
   if (files.length === 1) {
     return files[0].rows.map(row => ({
       "المنطقة": regionName,
@@ -186,45 +225,26 @@ function mergeByStudentName(files, regionName) {
     }));
   }
 
-  // ===== دمج متعدد الملفات بمقارنة اسم الطالب =====
-
-  // خطوة 1: جمع كل الملفات وتصنيفها حسب الشهر
+  // تجميع الملفات حسب الشهر
   const byMonth = {};
   files.forEach(file => {
-    const month = file.month;
-    if (!byMonth[month]) byMonth[month] = [];
-    byMonth[month] = byMonth[month].concat(file.rows);
+    if (!byMonth[file.month]) byMonth[file.month] = [];
+    byMonth[file.month] = byMonth[file.month].concat(file.rows);
   });
 
   const months = Object.keys(byMonth);
-
-  // خطوة 2: بناء قاموس الطلاب
-  // المفتاح: اسم الطالب | القيمة: بياناته من كل شهر
   const studentMap = {};
-
-  // الأعمدة الثابتة (لا تتكرر مع كل شهر)
-  const FIXED_COLS = [
-    "المنطقة", "اسم الطالب", "الاسم الثلاثي", "اسم الطالبة",
-    "الاسم", "اسم المدرس", "اسم المعلم", "اسم الحلقة",
-    "المركز", "المستوى", "_شهر_"
-  ];
 
   months.forEach(month => {
     byMonth[month].forEach(row => {
-      // إيجاد اسم الطالب
       const nameKey = findStudentNameKey(row);
       if (!nameKey) return;
       const studentName = String(row[nameKey]).trim();
-      if (!studentName) return;
+      if (!studentName || studentName === "") return;
 
+      // أول ظهور: حفظ البيانات الثابتة
       if (!studentMap[studentName]) {
-        // أول ظهور لهذا الطالب: نحفظ بياناته الثابتة
-        studentMap[studentName] = {
-          "المنطقة": regionName,
-          [nameKey]:  studentName,
-        };
-
-        // حفظ الأعمدة الثابتة
+        studentMap[studentName] = { "المنطقة": regionName };
         FIXED_COLS.forEach(col => {
           if (row[col] !== undefined && row[col] !== "") {
             studentMap[studentName][col] = row[col];
@@ -232,12 +252,11 @@ function mergeByStudentName(files, regionName) {
         });
       }
 
-      // إضافة بيانات هذا الشهر كأعمدة جديدة بلاحقة الشهر
+      // إضافة بيانات الشهر كأعمدة جديدة
       Object.entries(row).forEach(([key, val]) => {
-        if (FIXED_COLS.includes(key)) return; // تجاهل الأعمدة الثابتة
+        if (FIXED_COLS.includes(key)) return;
         if (key === nameKey) return;
-        const newKey = `${key} (${month})`;
-        studentMap[studentName][newKey] = val;
+        studentMap[studentName][`${key} (${month})`] = val;
       });
     });
   });
@@ -253,7 +272,10 @@ function updateCardUI(regionId) {
 
   document.getElementById(`stats-${regionId}`).innerHTML =
     `<span class="files-badge">${fileCount} ملف</span>
-     <span style="color:#7de8b0">${totalRows} سجل — ${fileCount > 1 ? "سيتم دمج الطلاب تلقائياً 🔀" : ""}  </span>`;
+     <span style="color:#7de8b0">
+       ${totalRows} سجل
+       ${fileCount > 1 ? "— سيتم دمج الطلاب تلقائياً 🔀" : ""}
+     </span>`;
 
   const zone = document.getElementById(`zone-${regionId}`);
   zone.classList.add("success");
@@ -271,7 +293,9 @@ function updateCardUI(regionId) {
       <span>📄 ${f.name}</span>
       <span style="color:var(--gold-light)">${f.month}</span>
       <span>${f.rows.length} طالب</span>
-      <button class="file-remove" onclick="removeFile(${regionId}, ${i})" title="حذف">✕</button>
+      <button class="file-remove"
+              onclick="removeFile(${regionId}, ${i})"
+              title="حذف">✕</button>
     </div>
   `).join("");
 
@@ -298,6 +322,7 @@ function resetCard(regionId) {
   document.getElementById(`files-list-${regionId}`).innerHTML = "";
   document.getElementById(`btn-region-${regionId}`).style.display = "none";
   document.getElementById(`card-${regionId}`).classList.remove("uploaded");
+
   const zone = document.getElementById(`zone-${regionId}`);
   zone.classList.remove("success");
   zone.innerHTML = `
@@ -310,7 +335,7 @@ function resetCard(regionId) {
   `;
 }
 
-// ===== تحديث الإحصائيات =====
+// ===== تحديث الإحصائيات العلوية =====
 function updateGlobalStats() {
   const regionCount = Object.keys(regionFiles).length;
   const totalFiles  = Object.values(regionFiles).reduce((s, a) => s + a.length, 0);
@@ -328,7 +353,7 @@ function updateGlobalStats() {
     regionCount > 0 ? "inline-flex" : "none";
 }
 
-// ===== تصدير منطقة واحدة فقط =====
+// ===== تصدير منطقة واحدة =====
 function exportRegionOnly(regionId) {
   const files = regionFiles[regionId];
   if (!files || files.length === 0) return;
@@ -339,14 +364,14 @@ function exportRegionOnly(regionId) {
   const ws = XLSX.utils.json_to_sheet(merged);
   ws["!cols"] = Object.keys(merged[0]).map(() => ({ wch: 22 }));
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, REGIONS[regionId].name);
+  const wbOut = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wbOut, ws, REGIONS[regionId].name);
 
   const today = new Date().toLocaleDateString("ar-SA").replace(/\//g, "-");
-  XLSX.writeFile(wb, `${REGIONS[regionId].name}_${today}.xlsx`);
+  XLSX.writeFile(wbOut, `${REGIONS[regionId].name}_${today}.xlsx`);
 }
 
-// ===== دمج كل المناطق =====
+// ===== دمج كل المناطق وتصديرها =====
 function mergeAllAndExport() {
   if (Object.keys(regionFiles).length === 0) {
     alert("⚠️ لم يتم رفع أي ملف");
@@ -360,12 +385,11 @@ function mergeAllAndExport() {
     if (!regionFiles[region.id]) return;
     const merged = mergeByStudentName(regionFiles[region.id], region.name);
     allRows = allRows.concat(merged);
-
     summaryRows.push({
-      "المنطقة":      region.name,
-      "عدد الملفات":  regionFiles[region.id].length,
-      "الأشهر":       regionFiles[region.id].map(f => f.month).join(" | "),
-      "عدد الطلاب":   merged.length
+      "المنطقة":     region.name,
+      "عدد الملفات": regionFiles[region.id].length,
+      "الأشهر":      regionFiles[region.id].map(f => f.month).join(" | "),
+      "عدد الطلاب":  merged.length
     });
   });
 
@@ -376,12 +400,12 @@ function mergeAllAndExport() {
 
   const ws2 = XLSX.utils.json_to_sheet(summaryRows);
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, "البيانات الكاملة");
-  XLSX.utils.book_append_sheet(wb, ws2, "إحصائيات المناطق");
+  const wbOut = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wbOut, ws1, "البيانات الكاملة");
+  XLSX.utils.book_append_sheet(wbOut, ws2, "إحصائيات المناطق");
 
   const today = new Date().toLocaleDateString("ar-SA").replace(/\//g, "-");
-  XLSX.writeFile(wb, `النبأ_العظيم_${today}.xlsx`);
+  XLSX.writeFile(wbOut, `النبأ_العظيم_${today}.xlsx`);
 
   document.getElementById("status-label").textContent = "تم التصدير ✅";
   renderPreview(allRows);
@@ -389,6 +413,7 @@ function mergeAllAndExport() {
 
 // ===== المعاينة =====
 let previewVisible = false;
+
 function togglePreview() {
   const section = document.getElementById("preview-section");
   if (!previewVisible) {
@@ -400,10 +425,12 @@ function togglePreview() {
     renderPreview(allRows);
     section.style.display = "block";
     section.scrollIntoView({ behavior: "smooth" });
-    document.getElementById("preview-btn").querySelector("span:last-child").textContent = "إخفاء المعاينة";
+    document.getElementById("preview-btn")
+      .querySelector("span:last-child").textContent = "إخفاء المعاينة";
   } else {
     section.style.display = "none";
-    document.getElementById("preview-btn").querySelector("span:last-child").textContent = "معاينة البيانات";
+    document.getElementById("preview-btn")
+      .querySelector("span:last-child").textContent = "معاينة البيانات";
   }
   previewVisible = !previewVisible;
 }
@@ -419,23 +446,30 @@ function renderPreview(rows) {
   let html = `<table><thead><tr>
     ${headers.map(h => `<th>${h}</th>`).join("")}
   </tr></thead><tbody>`;
+
   preview.forEach(row => {
     html += `<tr>${headers.map(h => `<td>${row[h] ?? ""}</td>`).join("")}</tr>`;
   });
+
   html += `</tbody></table>`;
+
   if (rows.length > 50) {
-    html += `<p style="text-align:center;color:var(--text-muted);font-size:0.78rem;margin-top:12px">
+    html += `<p style="text-align:center;color:var(--text-muted);
+                        font-size:0.78rem;margin-top:12px">
       يُعرض أول 50 طالب — الملف يحتوي على كامل البيانات (${rows.length} طالب)
     </p>`;
   }
+
   document.getElementById("preview-table-container").innerHTML = html;
 }
 
 // ===== إعادة تعيين كل شيء =====
 function resetAll() {
   if (!confirm("⚠️ هل تريد حذف كل البيانات والبدء من جديد؟")) return;
+
   Object.keys(regionFiles).forEach(k => delete regionFiles[k]);
   REGIONS.forEach(r => resetCard(r.id));
+
   document.getElementById("preview-section").style.display = "none";
   document.getElementById("preview-btn").style.display = "none";
   previewVisible = false;
