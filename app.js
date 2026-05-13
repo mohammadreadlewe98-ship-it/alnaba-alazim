@@ -14,8 +14,7 @@ const STUDENT_NAME_COLS = [
 ];
 
 const FIXED_COLS = [
-  "المنطقة", "اسم الطالب", "الاسم الثلاثي", "اسم الطالبة",
-  "الاسم", "اسم المدرس", "اسم المعلم", "اسم الحلقة",
+  "المنطقة", "اسم الطالب", "اسم المدرس", "اسم الحلقة",
   "المركز", "المستوى", "_شهر_"
 ];
 
@@ -26,15 +25,89 @@ const HEADER_KEYWORDS = [
 
 const regionFiles = {};
 
+// ===== توحيد أسماء الأعمدة =====
+function normalizeColumns(rows) {
+  return rows.map(row => {
+    const out = {};
+
+    Object.entries(row).forEach(([key, val]) => {
+      const k = key.trim();
+
+      if (k === "م" || k === "رقم" || k === "#") {
+        out["م"] = val;
+
+      } else if (["اسم الطالب","الاسم الثلاثي","اسم الطالبة","الاسم"].includes(k)) {
+        out["اسم الطالب"] = val;
+
+      } else if (["اسم المدرس","اسم المعلم","المدرس","المعلم"].includes(k)) {
+        out["اسم المدرس"] = val;
+
+      } else if (
+        k === "من" ||
+        (k.includes("صفحات") && !k.includes("إلى") && !k.includes("خلال"))
+      ) {
+        if (!out["صفحة البداية"]) out["صفحة البداية"] = val;
+
+      } else if (k === "إلى" || k === "عمود_7" || k === "عمود_9") {
+        if (!out["صفحة النهاية"]) out["صفحة النهاية"] = val;
+
+      } else if (k.includes("صفحات الحفظ خلال")) {
+        if (!out["صفحة البداية"]) out["صفحة البداية"] = val;
+
+      } else if (["التقدير","تقدير الحفظ","تقدير"].includes(k)) {
+        out["التقدير"] = val;
+
+      } else if (k.includes("أيام الحضور الفعلي")) {
+        out["أيام الحضور"] = val;
+
+      } else if (k.includes("أيام الغياب")) {
+        out["أيام الغياب"] = val;
+
+      } else if (k.includes("نسبة الحضور")) {
+        out["نسبة الحضور"] = val;
+
+      } else if (k.includes("أيام الداوام") || k.includes("أيام الدوام")) {
+        out["أيام الدوام"] = val;
+
+      } else if (k.includes("دروس المنهاج") || k.includes("عناوين دروس")) {
+        out["دروس المنهاج"] = val;
+
+      } else if (k.includes("الأجزاء المسبورة")) {
+        out["الأجزاء المسبورة"] = val;
+
+      } else if (k === "ملاحظات") {
+        out["ملاحظات"] = val;
+
+      } else if (k === "اسم الحلقة") {
+        out["اسم الحلقة"] = val;
+
+      } else if (k === "المركز") {
+        out["المركز"] = val;
+
+      } else if (k === "المستوى" || k.includes("المستوى (حسب")) {
+        out["المستوى"] = val;
+
+      } else if (!k.startsWith("عمود_") && k !== "_شهر_" && k !== "") {
+        out[k] = val;
+      }
+    });
+
+    if (row["_شهر_"]) out["_شهر_"] = row["_شهر_"];
+    return out;
+  });
+}
+
 // ===== إيجاد عمود اسم الطالب =====
 function findStudentNameKey(row) {
+  if (row["اسم الطالب"] !== undefined && String(row["اسم الطالب"]).trim() !== "")
+    return "اسم الطالب";
   for (const col of STUDENT_NAME_COLS) {
     if (row.hasOwnProperty(col) && String(row[col]).trim() !== "") return col;
   }
   return Object.keys(row).find(k => row[k] !== "") || null;
 }
 
-// ===== بناء البطاقات عند تحميل الصفحة =====
+// ===== بناء البطاقات =====
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("year").textContent = new Date().getFullYear();
   const grid = document.getElementById("regions-grid");
@@ -92,7 +165,24 @@ function handleDrop(event, regionId) {
   Array.from(event.dataTransfer.files).forEach(f => processFile(f, regionId));
 }
 
-// ===== قراءة الملف مع البحث عن صف الرأس الحقيقي =====
+// ===== استخراج اسم الشهر =====
+function extractMonthLabel(fileName, sheetName) {
+  const arabicMonths = [
+    "يناير","فبراير","مارس","أبريل","مايو","يونيو",
+    "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
+    "محرم","صفر","ربيع","جمادى","رجب","شعبان","رمضان","شوال","ذو",
+    "كانون","شباط","آذار","نيسان","أيار","حزيران",
+    "تموز","آب","أيلول","تشرين","اذار","ايار"
+  ];
+  for (const src of [fileName, sheetName]) {
+    for (const m of arabicMonths) {
+      if (src.includes(m)) return m;
+    }
+  }
+  return new Date().toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
+}
+
+// ===== قراءة الملف مع البحث عن صف الرأس =====
 function processFile(file, regionId) {
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -105,11 +195,7 @@ function processFile(file, regionId) {
         const ws = wb.Sheets[sheetName];
 
         // قراءة خام بدون header تلقائي
-        const rawData = XLSX.utils.sheet_to_json(ws, {
-          header: 1,
-          defval: ""
-        });
-
+        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         if (rawData.length === 0) return;
 
         // البحث عن صف الرأس الحقيقي في أول 10 صفوف
@@ -117,35 +203,29 @@ function processFile(file, regionId) {
         for (let i = 0; i < Math.min(rawData.length, 10); i++) {
           const rowStr = rawData[i].join(" ");
           const matchCount = HEADER_KEYWORDS.filter(k => rowStr.includes(k)).length;
-          if (matchCount >= 2) {
-            headerRowIndex = i;
-            break;
-          }
+          if (matchCount >= 2) { headerRowIndex = i; break; }
         }
 
-        // بناء أسماء الأعمدة من صف الرأس
+        // بناء أسماء الأعمدة
         const headers = rawData[headerRowIndex].map((h, idx) => {
           const trimmed = String(h).trim();
           return trimmed !== "" ? trimmed : `عمود_${idx}`;
         });
 
-        // قراءة بيانات الطلاب بعد صف الرأس
+        // قراءة صفوف البيانات
         let rows = [];
         for (let i = headerRowIndex + 1; i < rawData.length; i++) {
           const rawRow = rawData[i];
           const rowObj = {};
-
           headers.forEach((h, idx) => {
             rowObj[h] = rawRow[idx] !== undefined ? rawRow[idx] : "";
           });
 
-          // تجاهل الصفوف الفارغة أو شبه الفارغة
           const nonEmpty = Object.values(rowObj).filter(
             v => v !== "" && v !== null && v !== undefined
           );
           if (nonEmpty.length < 2) continue;
 
-          // تجاهل صفوف المجاميع والعناوين المكررة
           const rowStr = Object.values(rowObj).join(" ");
           if (
             rowStr.includes("المجموع") ||
@@ -160,11 +240,15 @@ function processFile(file, regionId) {
         }
 
         if (rows.length === 0) return;
+
+        // ===== توحيد الأعمدة قبل الحفظ =====
+        rows = normalizeColumns(rows);
+
         allRows = allRows.concat(rows);
       });
 
       if (allRows.length === 0) {
-        alert(`⚠️ لم يُعثر على بيانات في: ${file.name}\n\nتأكد أن الملف يحتوي على جدول بأعمدة واضحة.`);
+        alert(`⚠️ لم يُعثر على بيانات في: ${file.name}`);
         return;
       }
 
@@ -195,37 +279,15 @@ function processFile(file, regionId) {
   reader.readAsBinaryString(file);
 }
 
-// ===== استخراج اسم الشهر من اسم الملف =====
-function extractMonthLabel(fileName, sheetName) {
-  const arabicMonths = [
-    "يناير","فبراير","مارس","أبريل","مايو","يونيو",
-    "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
-    "محرم","صفر","ربيع","جمادى","رجب","شعبان","رمضان","شوال","ذو",
-    "كانون","شباط","آذار","نيسان","أيار","حزيران",
-    "تموز","آب","أيلول","تشرين","اذار","ايار"
-  ];
-
-  for (const src of [fileName, sheetName]) {
-    for (const m of arabicMonths) {
-      if (src.includes(m)) return m;
-    }
-  }
-
-  return new Date().toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
-}
-
-// ===== الدمج الذكي: كل طالب سطر واحد تتوسع أعمدته شهرياً =====
+// ===== الدمج الذكي: كل طالب سطر واحد =====
 function mergeByStudentName(files, regionName) {
   if (!files || files.length === 0) return [];
 
   if (files.length === 1) {
-    return files[0].rows.map(row => ({
-      "المنطقة": regionName,
-      ...row
-    }));
+    return files[0].rows.map(row => ({ "المنطقة": regionName, ...row }));
   }
 
-  // تجميع الملفات حسب الشهر
+  // تجميع حسب الشهر
   const byMonth = {};
   files.forEach(file => {
     if (!byMonth[file.month]) byMonth[file.month] = [];
@@ -240,15 +302,14 @@ function mergeByStudentName(files, regionName) {
       const nameKey = findStudentNameKey(row);
       if (!nameKey) return;
       const studentName = String(row[nameKey]).trim();
-      if (!studentName || studentName === "") return;
+      if (!studentName) return;
 
       // أول ظهور: حفظ البيانات الثابتة
       if (!studentMap[studentName]) {
         studentMap[studentName] = { "المنطقة": regionName };
         FIXED_COLS.forEach(col => {
-          if (row[col] !== undefined && row[col] !== "") {
+          if (row[col] !== undefined && row[col] !== "")
             studentMap[studentName][col] = row[col];
-          }
         });
       }
 
@@ -335,7 +396,7 @@ function resetCard(regionId) {
   `;
 }
 
-// ===== تحديث الإحصائيات العلوية =====
+// ===== تحديث الإحصائيات =====
 function updateGlobalStats() {
   const regionCount = Object.keys(regionFiles).length;
   const totalFiles  = Object.values(regionFiles).reduce((s, a) => s + a.length, 0);
@@ -371,7 +432,7 @@ function exportRegionOnly(regionId) {
   XLSX.writeFile(wbOut, `${REGIONS[regionId].name}_${today}.xlsx`);
 }
 
-// ===== دمج كل المناطق وتصديرها =====
+// ===== دمج كل المناطق =====
 function mergeAllAndExport() {
   if (Object.keys(regionFiles).length === 0) {
     alert("⚠️ لم يتم رفع أي ملف");
